@@ -33,25 +33,24 @@ var _dir = Directory.new()
 
 
 func set_object_container(value: NodePath) -> void:
-	emit_signal("changes")
 	update_configuration_warning()
 	if _object_container and _object_container.get_child_count():
 		for c in _object_container.get_children():
-			remove_meta("_linked_mask2d_")
+			remove_meta("_linked_gomask2d_")
 
 	object_container = value
-	if get_node_or_null(object_container):
-		if get_node(object_container) != get_parent() and get_node(object_container) != self:
-			_object_container = get_node(object_container)
-			for c in _object_container.get_children():
-				c.set_meta("_linked_mask2d_", true)
-			return
-	_object_container = null
+	if get_node_or_null(object_container) and get_node(object_container) != get_parent() and get_node(object_container) != self:
+		_object_container = get_node(object_container)
+		for c in _object_container.get_children():
+			c.set_meta("_linked_gomask2d_", true)
+	else:
+		_object_container = null
+	emit_signal("changes")
 
 
 func set_texture_name(value: String) -> void:
-	emit_signal("changes")
 	texture_name = value
+	emit_signal("changes")
 	
 
 func set_texture_path(value: String) -> void:
@@ -73,6 +72,8 @@ func _get_configuration_warning() -> String:
 			return "Don't use parent node"
 		WARN_CODE.IS_SELF:
 			return "Don't use self node"
+	if not texture_name:
+		return "Texture Name is required"
 	return ""
 
 

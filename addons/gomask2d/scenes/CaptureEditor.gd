@@ -18,7 +18,7 @@ func _ready() -> void:
 
 
 func _toggle_disable_buttons() -> void:
-	if mask2d.object_container and mask2d.texture_name:
+	if mask2d and mask2d._object_container and mask2d._object_container.get_child_count() and mask2d.texture_name:
 		capture_button.disabled = false
 		debug_button.disabled = false
 		return

@@ -27,7 +27,7 @@ func edit(object: Object) -> void:
 
 
 func handles(object: Object) -> bool:
-	if object is Mask2D or object.has_meta("_linked_mask2d_"):
+	if object is Mask2D or object.has_meta("_linked_gomask2d_"):
 		return true
 	return false
 

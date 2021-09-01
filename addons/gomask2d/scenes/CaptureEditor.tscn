@@ -1,0 +1,102 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://addons/gomask2d/scenes/CaptureEditor.gd" type="Script" id=1]
+
+[sub_resource type="StyleBoxFlat" id=1]
+bg_color = Color( 0.666667, 0.0862745, 0.0862745, 1 )
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id=2]
+bg_color = Color( 0.8, 0.160784, 0.160784, 1 )
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxEmpty" id=3]
+
+[sub_resource type="StyleBoxFlat" id=4]
+bg_color = Color( 0.2, 0.227451, 0.309804, 1 )
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id=5]
+bg_color = Color( 0.74902, 0.109804, 0.109804, 1 )
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="CaptureEditor" type="MarginContainer"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_right = -847.0
+margin_bottom = -547.0
+custom_constants/margin_right = 6
+custom_constants/margin_top = 6
+custom_constants/margin_left = 6
+custom_constants/margin_bottom = 6
+script = ExtResource( 1 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+margin_left = 6.0
+margin_top = 6.0
+margin_right = 171.0
+margin_bottom = 54.0
+rect_min_size = Vector2( 0, 30 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+margin_right = 165.0
+margin_bottom = 22.0
+
+[node name="CaptureButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+margin_right = 139.0
+margin_bottom = 22.0
+rect_min_size = Vector2( 0, 16 )
+size_flags_horizontal = 3
+size_flags_vertical = 3
+custom_styles/hover = SubResource( 1 )
+custom_styles/pressed = SubResource( 2 )
+custom_styles/focus = SubResource( 3 )
+custom_styles/disabled = SubResource( 4 )
+custom_styles/normal = SubResource( 5 )
+custom_colors/font_color_disabled = Color( 0.164706, 0.164706, 0.164706, 1 )
+custom_colors/font_color_pressed = Color( 0.12549, 0.12549, 0.12549, 1 )
+text = "Capture"
+
+[node name="DebugButton" type="ToolButton" parent="VBoxContainer/HBoxContainer"]
+margin_left = 143.0
+margin_right = 165.0
+margin_bottom = 22.0
+toggle_mode = true
+text = "D"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer"]
+margin_top = 26.0
+margin_right = 165.0
+margin_bottom = 40.0
+custom_constants/separation = 0
+
+[node name="TexSizeLabel" type="Label" parent="VBoxContainer/VBoxContainer"]
+margin_right = 165.0
+margin_bottom = 14.0
+text = "Texture Size:"
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+margin_top = 44.0
+margin_right = 165.0
+margin_bottom = 48.0
+
+[connection signal="button_down" from="VBoxContainer/HBoxContainer/CaptureButton" to="." method="_on_CaptureButton_button_down"]
+[connection signal="toggled" from="VBoxContainer/HBoxContainer/DebugButton" to="." method="_on_ToolButton_toggled"]

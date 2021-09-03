@@ -27,9 +27,9 @@ func edit(object: Object) -> void:
 
 
 func handles(object: Object) -> bool:
-	if object is Mask2D or object.has_meta("_linked_gomask2d_"):
-		return true
-	return false
+#	if object is Mask2D or object.has_meta(Mask2D.METADATA.parent):
+#		return true
+	return true
 
 
 func forward_canvas_draw_over_viewport(overlay: Control) -> void:

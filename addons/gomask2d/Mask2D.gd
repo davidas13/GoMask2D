@@ -8,12 +8,13 @@ signal debug(value)
 signal draw_debug(overlay)
 
 enum WARN_CODE {IS_PARENT, IS_SELF, IS_EMPTY}
-const COLOR = {
+const COLOR := {
 	"parent_line": Color("b966f1"),
 	"child_line": Color("ed6790"),
 	"parent_anchor": Color("6200fd"),
 	"child_anchor": Color("fb001d")
 }
+
 const default_tex_path := "res://addons/gomask2d/_mask_textures/"
 
 export(NodePath) var object_container setget set_object_container
@@ -34,15 +35,9 @@ var _dir = Directory.new()
 
 func set_object_container(value: NodePath) -> void:
 	update_configuration_warning()
-	if _object_container and _object_container.get_child_count():
-		for c in _object_container.get_children():
-			remove_meta("_linked_gomask2d_")
-
 	object_container = value
 	if get_node_or_null(object_container) and get_node(object_container) != get_parent() and get_node(object_container) != self:
 		_object_container = get_node(object_container)
-		for c in _object_container.get_children():
-			c.set_meta("_linked_gomask2d_", true)
 	else:
 		_object_container = null
 	emit_signal("changes")
@@ -106,68 +101,134 @@ func _process(_delta: float) -> void:
 
 func _object_position_data() -> Dictionary:
 	var children_nodes := _object_container.get_children()
-	var child_transforms := []
-	var parent_transform := {}
+	var parent_pos_data := {}
+	var child_pos_datas := []
 	var parent_pos_x_pools := []
 	var parent_pos_y_pools := []
+	
 
 	for cn in children_nodes:
-		var p_data
-		if cn is Sprite:
-			p_data = _get_sprite_pos_data(cn)
-		elif cn is Polygon2D:
-			p_data = _get_polygon_pos_data(cn, cn.polygon)
-		elif cn is Path2D:
-			p_data = _get_curve_pos_data(cn, cn.curve)
-		elif cn is Line2D:
-			p_data = _get_points_pos_data(cn, cn.points)
-		elif "SS2D_Shape_Closed" in cn.name:
-				p_data = _get_curve_pos_data(cn, cn._curve)
-		elif cn is Node2D and cn.get_child_count():
-			var childs = cn.get_children()
-			if not childs.empty():
-				for c in childs:
-					if c is Sprite:
-						var st = _get_sprite_pos_data(c)
+		var p_data: Dictionary
+		p_data = _child_position_data(cn)
+		if cn is CollisionObject2D:
+			for c in cn.get_children():
+				p_data = _child_position_data(c)
+				if not p_data.empty():
+					parent_pos_x_pools.push_back(p_data.top_left.x)
+					parent_pos_x_pools.push_back(p_data.top_right.x)
+					parent_pos_y_pools.push_back(p_data.top_left.y)
+					parent_pos_y_pools.push_back(p_data.bottom_left.y)
+					child_pos_datas.append(p_data)
+		if not p_data.empty():
+			parent_pos_x_pools.push_back(p_data.top_left.x)
+			parent_pos_x_pools.push_back(p_data.top_right.x)
+			parent_pos_y_pools.push_back(p_data.top_left.y)
+			parent_pos_y_pools.push_back(p_data.bottom_left.y)
+			child_pos_datas.push_back(p_data)
 
-						parent_pos_x_pools.push_back(st.pos_x_left)
-						parent_pos_x_pools.push_back(st.pos_x_right)
-						parent_pos_y_pools.push_back(st.pos_y_top)
-						parent_pos_y_pools.push_back(st.pos_y_bottom)
-						
-						child_transforms.push_back({
-							"top_left": Vector2(st.pos_x_left, st.pos_y_top),
-							"top_right": Vector2(st.pos_x_right, st.pos_y_top),
-							"bottom_left": Vector2(st.pos_x_left, st.pos_y_bottom),
-							"bottom_right": Vector2(st.pos_x_right, st.pos_y_bottom)
-						})
-		if p_data:
-			parent_pos_x_pools.push_back(p_data.pos_x_left)
-			parent_pos_x_pools.push_back(p_data.pos_x_right)
-			parent_pos_y_pools.push_back(p_data.pos_y_top)
-			parent_pos_y_pools.push_back(p_data.pos_y_bottom)
-
-			child_transforms.push_back({
-				"top_left": Vector2(p_data.pos_x_left, p_data.pos_y_top),
-				"top_right": Vector2(p_data.pos_x_right, p_data.pos_y_top),
-				"bottom_left": Vector2(p_data.pos_x_left, p_data.pos_y_bottom),
-				"bottom_right": Vector2(p_data.pos_x_right, p_data.pos_y_bottom)
-			})
-
+	
 	if not parent_pos_x_pools.empty() and not parent_pos_y_pools.empty():
 		var parent_pos_x_left = parent_pos_x_pools.min()
 		var parent_pos_x_right = parent_pos_x_pools.max()
 		var parent_pos_y_top = parent_pos_y_pools.min()
 		var parent_pos_y_bottom = parent_pos_y_pools.max()
 		
-		parent_transform = {
+		parent_pos_data = {
 			"top_left": Vector2(parent_pos_x_left, parent_pos_y_top),
 			"top_right": Vector2(parent_pos_x_right, parent_pos_y_top),
 			"bottom_left": Vector2(parent_pos_x_left, parent_pos_y_bottom),
 			"bottom_right": Vector2(parent_pos_x_right, parent_pos_y_bottom)
 		}
+		
+#	print(parent_pos_data)
+	return {"parent": parent_pos_data, "childs": child_pos_datas}
 
-	return {"parent": parent_transform, "childs": child_transforms}
+
+func _child_position_data(node: Node2D) -> Dictionary:
+	var position_data := {}
+
+	if node is Sprite:
+		position_data = _get_sprite_pos_data(node)
+	elif node is Polygon2D:
+		position_data = _get_points_position(node, node.polygon)
+	elif node is Path2D:
+		var baked_points : PoolVector2Array = node.curve.get_baked_points()
+		position_data = _get_points_position(node, baked_points)
+	elif node is Line2D:
+		position_data = _get_points_position(node, node.points)
+	elif "SS2D_Shape_Closed" in node.name:
+			var baked_points : PoolVector2Array = node._curve.get_baked_points()
+			position_data = _get_points_position(node, baked_points)
+
+	return position_data
+	
+	
+#func _child_position_data() -> Dictionary:
+#	var children_nodes := _object_container.get_children()
+#	var child_transforms := []
+#	var parent_transform := {}
+#	var parent_pos_x_pools := []
+#	var parent_pos_y_pools := []
+#
+#	for cn in children_nodes:
+#		var p_data
+#		if cn is Sprite:
+#			p_data = _get_sprite_pos_data(cn)
+#		elif cn is Polygon2D:
+#			p_data = _get_points_position(cn, cn.polygon)
+#		elif cn is Path2D:
+#			var baked_points : PoolVector2Array = cn.curve.get_baked_points()
+#			p_data = _get_points_position(cn, baked_points)
+#		elif cn is Line2D:
+#			p_data = _get_points_position(cn, cn.points)
+#		elif "SS2D_Shape_Closed" in cn.name:
+#				var baked_points : PoolVector2Array = cn._curve.get_baked_points()
+#				p_data = _get_points_position(cn, baked_points)
+#		elif cn is Node2D and cn.get_child_count():
+#			var childs = cn.get_children()
+#			if not childs.empty():
+#				for c in childs:
+#					if c is Sprite:
+#						var st = _get_sprite_pos_data(c)
+#
+#						parent_pos_x_pools.push_back(st.pos_x_left)
+#						parent_pos_x_pools.push_back(st.pos_x_right)
+#						parent_pos_y_pools.push_back(st.pos_y_top)
+#						parent_pos_y_pools.push_back(st.pos_y_bottom)
+#
+#						child_transforms.push_back({
+#							"top_left": Vector2(st.pos_x_left, st.pos_y_top),
+#							"top_right": Vector2(st.pos_x_right, st.pos_y_top),
+#							"bottom_left": Vector2(st.pos_x_left, st.pos_y_bottom),
+#							"bottom_right": Vector2(st.pos_x_right, st.pos_y_bottom)
+#						})
+#		if p_data:
+#			parent_pos_x_pools.push_back(p_data.pos_x_left)
+#			parent_pos_x_pools.push_back(p_data.pos_x_right)
+#			parent_pos_y_pools.push_back(p_data.pos_y_top)
+#			parent_pos_y_pools.push_back(p_data.pos_y_bottom)
+#
+#			child_transforms.push_back({
+#				"top_left": Vector2(p_data.pos_x_left, p_data.pos_y_top),
+#				"top_right": Vector2(p_data.pos_x_right, p_data.pos_y_top),
+#				"bottom_left": Vector2(p_data.pos_x_left, p_data.pos_y_bottom),
+#				"bottom_right": Vector2(p_data.pos_x_right, p_data.pos_y_bottom)
+#			})
+#
+#	if not parent_pos_x_pools.empty() and not parent_pos_y_pools.empty():
+#		var parent_pos_x_left = parent_pos_x_pools.min()
+#		var parent_pos_x_right = parent_pos_x_pools.max()
+#		var parent_pos_y_top = parent_pos_y_pools.min()
+#		var parent_pos_y_bottom = parent_pos_y_pools.max()
+#
+#		parent_transform = {
+#			"top_left": Vector2(parent_pos_x_left, parent_pos_y_top),
+#			"top_right": Vector2(parent_pos_x_right, parent_pos_y_top),
+#			"bottom_left": Vector2(parent_pos_x_left, parent_pos_y_bottom),
+#			"bottom_right": Vector2(parent_pos_x_right, parent_pos_y_bottom)
+#		}
+#
+#	return {"parent": parent_transform, "childs": child_transforms}
 
 
 func _setup_child_node() -> void:
@@ -176,70 +237,49 @@ func _setup_child_node() -> void:
 
 
 func _get_sprite_pos_data(node: Sprite) -> Dictionary:
-	var rect_size := Vector2(node.get_rect().size.x * node.scale.x, node.get_rect().size.y * node.scale.y)
-	var pos_x_left: float
-	var pos_x_right: float
-	var pos_y_top: float
-	var pos_y_bottom: float
+	var points := []
+	var rect = Rect2(node.global_position, node.get_rect().size * node.scale)
+	var pos_left_top: Vector2
+	var pos_right_top: Vector2
+	var pos_left_bottom: Vector2
+	var pos_right_bottom: Vector2
 	
 	if node.centered:
-		pos_x_left = (node.global_position.x + node.offset.x) - (rect_size.x / 2)
-		pos_x_right = (node.global_position.x + node.offset.x) + (rect_size.x / 2)
-		pos_y_top = (node.global_position.y + node.offset.y) - (rect_size.y / 2)
-		pos_y_bottom = (node.global_position.y + node.offset.y) + (rect_size.y / 2)
+		pos_left_top = Vector2(
+			rect.position.x - (rect.size.x/2),
+			rect.position.y - (rect.size.y/2)
+		)
+		pos_right_top = Vector2(
+			rect.end.x - (rect.size.x/2),
+			rect.position.y - (rect.size.y/2)
+			) 
+		pos_left_bottom = Vector2(
+			rect.position.x - (rect.size.x/2),
+			rect.end.y - (rect.size.y/2)
+			) 
+		pos_right_bottom = Vector2(
+			rect.end.x - (rect.size.x/2),
+			rect.end.y - (rect.size.y/2)
+			)
 	else:
-		pos_x_left = (node.global_position.x + node.offset.x) - Vector2.ZERO.x
-		pos_x_right = (node.global_position.x + node.offset.x) + (rect_size.x)
-		pos_y_top = (node.global_position.y + node.offset.y) - Vector2.ZERO.y
-		pos_y_bottom = (node.global_position.y + node.offset.y) + (rect_size.y)
+		pos_left_top = rect.position
+		pos_right_top = Vector2(
+			rect.end.x,
+			rect.position.y
+			) 
+		pos_left_bottom = Vector2(
+			rect.position.x,
+			rect.end.y
+			) 
+		pos_right_bottom = Vector2(
+			rect.end.x,
+			rect.end.y
+			) 
 
-	return {
-		"pos_x_left": pos_x_left,
-		"pos_x_right": pos_x_right,
-		"pos_y_top": pos_y_top,
-		"pos_y_bottom": pos_y_bottom
-	}
-
-
-func _get_points_pos_data(node: Node2D, points: PoolVector2Array) -> Dictionary:
-	var pos_x_pool := []
-	var pos_y_pool := []
-	var pos_x_left: float
-	var pos_x_right: float
-	var pos_y_top: float
-	var pos_y_bottom: float
+	for p in [pos_left_top, pos_right_top, pos_left_bottom, pos_right_bottom]:
+		points.push_back(p)
 	
-	for bk in points:
-		if bk:
-			pos_x_pool.push_back(node.global_position.x + bk.x * node.scale.x)
-			pos_y_pool.push_back(node.global_position.y + bk.y * node.scale.y)
-	
-	if not pos_x_pool.empty() and not pos_y_pool.empty():
-		pos_x_left = pos_x_pool.min()
-		pos_x_right = pos_x_pool.max()
-		pos_y_top = pos_y_pool.min()
-		pos_y_bottom = pos_y_pool.max()
-	
-	return {
-		"pos_x_left": pos_x_left,
-		"pos_x_right": pos_x_right,
-		"pos_y_top": pos_y_top,
-		"pos_y_bottom": pos_y_bottom
-	}
-
-
-func _get_polygon_pos_data(node: Polygon2D, polygon: PoolVector2Array) -> Dictionary:
-	var pt = _get_points_pos_data(node, polygon).duplicate()
-	pt.pos_x_left += node.offset.x
-	pt.pos_x_right += node.offset.x
-	pt.pos_y_top += node.offset.y
-	pt.pos_y_bottom += node.offset.y
-	return pt
-
-
-func _get_curve_pos_data(node: Node2D, curve: Curve2D) -> Dictionary:
-	var baked_points := curve.get_baked_points()
-	return _get_points_pos_data(node, baked_points)
+	return _get_points_position(node, points)
 
 
 func _get_all_children(node: Node2D) -> void:
@@ -265,6 +305,60 @@ func _hide_all_collision(node: Node) -> void:
 		if i is CollisionShape2D or i is CollisionPolygon2D or i is RayCast2D:
 			i.visible = false
 	_temp_child_nodes = []
+
+
+func _get_points_position(node: Node2D, points: PoolVector2Array) -> Dictionary:
+	var pos_x_pool := []
+	var pos_y_pool := []
+	var min_x: float
+	var max_x: float
+	var min_y: float
+	var max_y: float
+	var parent_scale = Vector2.ZERO
+	var _offset = Vector2.ZERO
+
+	if node.get_parent().get("scale"):
+		parent_scale = node.get_parent().scale
+
+	if node.get("offset"):
+		_offset = node.offset
+
+	for point in points:
+		if point:
+			var p: Vector2
+			if node is Sprite:
+				p = point
+			elif node is Polygon2D or node is Path2D or node is Line2D:
+				p = node.global_position + point * node.scale
+			point = _rotate_point(node.global_position, p, _offset, node.rotation)
+			pos_x_pool.push_back(point.x)
+			pos_y_pool.push_back(point.y)
+	
+	if not pos_x_pool.empty() and not pos_y_pool.empty():
+		min_x = pos_x_pool.min()
+		max_x = pos_x_pool.max()
+		min_y = pos_y_pool.min()
+		max_y = pos_y_pool.max()
+	
+	return {
+		"top_left": Vector2(min_x, min_y),
+		"top_right": Vector2(max_x, min_y),
+		"bottom_left": Vector2(min_x, max_y),
+		"bottom_right": Vector2(max_x, max_y)
+	}
+#			child_transforms.push_back({
+#				"top_left": Vector2(p_data.pos_x_left, p_data.pos_y_top),
+#				"top_right": Vector2(p_data.pos_x_right, p_data.pos_y_top),
+#				"bottom_left": Vector2(p_data.pos_x_left, p_data.pos_y_bottom),
+#				"bottom_right": Vector2(p_data.pos_x_right, p_data.pos_y_bottom)
+#			})
+
+
+func _rotate_point(pivot, point, offset, angle):
+	point = point + offset
+	var x = round((cos(angle) * (point[0] - pivot[0])) - (sin(angle) * (point[1] - pivot[1])) + pivot[0])
+	var y = round((sin(angle) * (point[0] - pivot[0])) + (cos(angle) * (point[1] - pivot[1])) + pivot[1])
+	return Vector2(x, y)
 
 
 func _on_Mask2D_draw_debug(overlay: Control) -> void:

@@ -6,8 +6,6 @@
 addons/rmsmartshape/
 export.cfg
 export_presets.cfg
-default_env.tres
-*.*.import
 
 # Imported translations (automatically generated from CSV files)
 *.translation

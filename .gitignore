@@ -4,6 +4,7 @@
 # Godot-specific ignores
 .import/
 addons/rmsmartshape/
+scene_test/
 metadata_inspector
 export.cfg
 export_presets.cfg

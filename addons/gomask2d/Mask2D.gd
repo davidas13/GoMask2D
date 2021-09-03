@@ -9,10 +9,10 @@ signal draw_debug(overlay)
 
 enum WARN_CODE {IS_PARENT, IS_SELF, IS_EMPTY}
 const COLOR := {
-	"parent_line": Color("b966f1"),
-	"child_line": Color("ed6790"),
-	"parent_anchor": Color("6200fd"),
-	"child_anchor": Color("fb001d")
+	"parent_line": Color("1e73e1"),
+	"child_line": Color("ffd166"),
+	"parent_anchor": Color("ffb703"),
+	"child_anchor": Color("fb8500")
 }
 
 const default_tex_path := "res://addons/gomask2d/_mask_textures/"
@@ -25,8 +25,8 @@ var _is_debug := false
 var _object_container : Node2D
 var _current_tex_size: Vector2 = Vector2.ZERO
 var _temp_child_nodes := []
-var _debug_achor_size := 2.0
-var _debug_line_size := 1.0
+var _debug_achor_size := 4.0
+var _debug_line_size := 2.0
 var _child_node: Node
 var _draw_node: Node2D
 var _op_data: Dictionary
@@ -55,7 +55,7 @@ func set_texture_path(value: String) -> void:
 
 
 func _enter_tree() -> void:
-	mode = MODE_MIX
+#	mode = MODE_MIX
 	set_meta("_edit_lock_", true)
 
 
@@ -140,7 +140,6 @@ func _object_position_data() -> Dictionary:
 			"bottom_right": Vector2(parent_pos_x_right, parent_pos_y_bottom)
 		}
 		
-#	print(parent_pos_data)
 	return {"parent": parent_pos_data, "childs": child_pos_datas}
 
 
@@ -156,79 +155,18 @@ func _child_position_data(node: Node2D) -> Dictionary:
 		position_data = _get_points_position(node, baked_points)
 	elif node is Line2D:
 		position_data = _get_points_position(node, node.points)
-	elif "SS2D_Shape_Closed" in node.name:
-			var baked_points : PoolVector2Array = node._curve.get_baked_points()
-			position_data = _get_points_position(node, baked_points)
+	elif _check_SS2D_Shape_node(node):
+		var baked_points : PoolVector2Array = node._curve.get_baked_points()
+		position_data = _get_points_position(node, baked_points)
 
 	return position_data
-	
-	
-#func _child_position_data() -> Dictionary:
-#	var children_nodes := _object_container.get_children()
-#	var child_transforms := []
-#	var parent_transform := {}
-#	var parent_pos_x_pools := []
-#	var parent_pos_y_pools := []
-#
-#	for cn in children_nodes:
-#		var p_data
-#		if cn is Sprite:
-#			p_data = _get_sprite_pos_data(cn)
-#		elif cn is Polygon2D:
-#			p_data = _get_points_position(cn, cn.polygon)
-#		elif cn is Path2D:
-#			var baked_points : PoolVector2Array = cn.curve.get_baked_points()
-#			p_data = _get_points_position(cn, baked_points)
-#		elif cn is Line2D:
-#			p_data = _get_points_position(cn, cn.points)
-#		elif "SS2D_Shape_Closed" in cn.name:
-#				var baked_points : PoolVector2Array = cn._curve.get_baked_points()
-#				p_data = _get_points_position(cn, baked_points)
-#		elif cn is Node2D and cn.get_child_count():
-#			var childs = cn.get_children()
-#			if not childs.empty():
-#				for c in childs:
-#					if c is Sprite:
-#						var st = _get_sprite_pos_data(c)
-#
-#						parent_pos_x_pools.push_back(st.pos_x_left)
-#						parent_pos_x_pools.push_back(st.pos_x_right)
-#						parent_pos_y_pools.push_back(st.pos_y_top)
-#						parent_pos_y_pools.push_back(st.pos_y_bottom)
-#
-#						child_transforms.push_back({
-#							"top_left": Vector2(st.pos_x_left, st.pos_y_top),
-#							"top_right": Vector2(st.pos_x_right, st.pos_y_top),
-#							"bottom_left": Vector2(st.pos_x_left, st.pos_y_bottom),
-#							"bottom_right": Vector2(st.pos_x_right, st.pos_y_bottom)
-#						})
-#		if p_data:
-#			parent_pos_x_pools.push_back(p_data.pos_x_left)
-#			parent_pos_x_pools.push_back(p_data.pos_x_right)
-#			parent_pos_y_pools.push_back(p_data.pos_y_top)
-#			parent_pos_y_pools.push_back(p_data.pos_y_bottom)
-#
-#			child_transforms.push_back({
-#				"top_left": Vector2(p_data.pos_x_left, p_data.pos_y_top),
-#				"top_right": Vector2(p_data.pos_x_right, p_data.pos_y_top),
-#				"bottom_left": Vector2(p_data.pos_x_left, p_data.pos_y_bottom),
-#				"bottom_right": Vector2(p_data.pos_x_right, p_data.pos_y_bottom)
-#			})
-#
-#	if not parent_pos_x_pools.empty() and not parent_pos_y_pools.empty():
-#		var parent_pos_x_left = parent_pos_x_pools.min()
-#		var parent_pos_x_right = parent_pos_x_pools.max()
-#		var parent_pos_y_top = parent_pos_y_pools.min()
-#		var parent_pos_y_bottom = parent_pos_y_pools.max()
-#
-#		parent_transform = {
-#			"top_left": Vector2(parent_pos_x_left, parent_pos_y_top),
-#			"top_right": Vector2(parent_pos_x_right, parent_pos_y_top),
-#			"bottom_left": Vector2(parent_pos_x_left, parent_pos_y_bottom),
-#			"bottom_right": Vector2(parent_pos_x_right, parent_pos_y_bottom)
-#		}
-#
-#	return {"parent": parent_transform, "childs": child_transforms}
+
+
+func _check_SS2D_Shape_node(node: Node2D) -> bool:
+	var ss2d_path = "res://addons/rmsmartshape"
+	if ss2d_path in node.get_script().get_path():
+		return true
+	return false
 
 
 func _setup_child_node() -> void:
@@ -328,7 +266,7 @@ func _get_points_position(node: Node2D, points: PoolVector2Array) -> Dictionary:
 			var p: Vector2
 			if node is Sprite:
 				p = point
-			elif node is Polygon2D or node is Path2D or node is Line2D:
+			elif node is Polygon2D or node is Path2D or node is Line2D or _check_SS2D_Shape_node(node):
 				p = node.global_position + point * node.scale
 			point = _rotate_point(node.global_position, p, _offset, node.rotation)
 			pos_x_pool.push_back(point.x)
@@ -346,12 +284,6 @@ func _get_points_position(node: Node2D, points: PoolVector2Array) -> Dictionary:
 		"bottom_left": Vector2(min_x, max_y),
 		"bottom_right": Vector2(max_x, max_y)
 	}
-#			child_transforms.push_back({
-#				"top_left": Vector2(p_data.pos_x_left, p_data.pos_y_top),
-#				"top_right": Vector2(p_data.pos_x_right, p_data.pos_y_top),
-#				"bottom_left": Vector2(p_data.pos_x_left, p_data.pos_y_bottom),
-#				"bottom_right": Vector2(p_data.pos_x_right, p_data.pos_y_bottom)
-#			})
 
 
 func _rotate_point(pivot, point, offset, angle):
@@ -359,6 +291,11 @@ func _rotate_point(pivot, point, offset, angle):
 	var x = round((cos(angle) * (point[0] - pivot[0])) - (sin(angle) * (point[1] - pivot[1])) + pivot[0])
 	var y = round((sin(angle) * (point[0] - pivot[0])) + (cos(angle) * (point[1] - pivot[1])) + pivot[1])
 	return Vector2(x, y)
+
+
+func _random_color() -> Color:
+	randomize()
+	return Color(randf(), randf(), randf())
 
 
 func _on_Mask2D_draw_debug(overlay: Control) -> void:

@@ -27,13 +27,13 @@ func edit(object: Object) -> void:
 
 
 func handles(object: Object) -> bool:
-#	if object is Mask2D or object.has_meta(Mask2D.METADATA.parent):
-#		return true
-	return true
+	if object is Mask2D or object is Node2D:
+		return true
+	return false
 
 
 func forward_canvas_draw_over_viewport(overlay: Control) -> void:
-	if not mask2d or not mask2d.is_inside_tree():
+	if not is_instance_valid(mask2d) or not mask2d.is_inside_tree():
 		return
 	mask2d.emit_signal("draw_debug", overlay)
 

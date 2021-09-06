@@ -6,6 +6,7 @@ signal changes
 signal tex_resize(tex_size)
 signal debug(value)
 signal draw_debug(overlay)
+signal draw_canvas(image, dst_position)
 
 enum WARN_CODE {IS_PARENT, IS_SELF, IS_EMPTY}
 const COLOR := {
@@ -28,9 +29,65 @@ var _temp_child_nodes := []
 var _debug_achor_size := 4.0
 var _debug_line_size := 2.0
 var _child_node: Node
-var _draw_node: Node2D
+var _canvas_node: Sprite
+var _canvas_image: Image
 var _op_data: Dictionary
 var _dir = Directory.new()
+
+
+# Draw Runtime Group
+var draw_activate: bool = false setget set_draw_activate
+var draw_centered: bool = true setget set_draw_centered
+var draw_global_coordinate: bool = true setget set_draw_global_coordinate
+var draw_auto_crop: bool = false setget set_draw_auto_crop
+var draw_crop_expand: float = 1.0 setget set_draw_crop_expand
+
+
+func _get_property_list():
+	return [
+		{
+			"name": "Draw Runtime",
+			"type": TYPE_NIL,
+			"hint_string": "draw_",
+			"usage": PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SCRIPT_VARIABLE
+		},
+		{
+			"name": "draw_activate",
+			"type": TYPE_BOOL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_NONE,
+		},
+		{
+			"name": "draw_centered",
+			"type": TYPE_BOOL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_NONE,
+		},
+		{
+			"name": "draw_global_coordinate",
+			"type": TYPE_BOOL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_NONE,
+		},
+		{
+			"name": "draw_auto_crop",
+			"type": TYPE_BOOL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_NONE,
+		},
+		{
+			"name": "draw_crop_expand",
+			"type": TYPE_REAL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_RANGE,
+			"hint_string": "0.1,10.0,0.1,or_greater,or_lesser"
+		},
+	]
 
 
 func set_object_container(value: NodePath) -> void:
@@ -41,17 +98,50 @@ func set_object_container(value: NodePath) -> void:
 	else:
 		_object_container = null
 	emit_signal("changes")
+	property_list_changed_notify()
 
 
 func set_texture_name(value: String) -> void:
 	texture_name = value
 	emit_signal("changes")
+	property_list_changed_notify()
 	
 
 func set_texture_path(value: String) -> void:
 	texture_path = value
 	if texture_path == "" or not _dir.dir_exists(texture_path):
 		texture_path = default_tex_path
+	property_list_changed_notify()
+
+
+func set_draw_activate(value: bool) -> void:
+	draw_activate = value
+	property_list_changed_notify()
+
+
+func set_draw_centered(value: bool) -> void:
+	draw_centered = value
+	property_list_changed_notify()
+
+
+func set_draw_global_coordinate(value: bool) -> void:
+	draw_global_coordinate = value
+	property_list_changed_notify()
+
+
+func set_texture(value: Texture) -> void:
+	texture = texture
+	property_list_changed_notify()
+
+
+func set_draw_auto_crop(value: bool) -> void:
+	draw_auto_crop = value
+	property_list_changed_notify()
+
+
+func set_draw_crop_expand(value: float) -> void:
+	draw_crop_expand = value
+	property_list_changed_notify()
 
 
 func _enter_tree() -> void:
@@ -81,13 +171,16 @@ func _ready() -> void:
 		connect("capture", self, "_on_Mask2D_capture")
 		connect("draw_debug", self, "_on_Mask2D_draw_debug")
 	else:
+		if is_visible_in_tree() and draw_activate:
+			_setup_canvas_node()
+		connect("draw_canvas", self, "_on_Mask2D_draw_canvas")
 		set_process(false)
 
 
 func _process(_delta: float) -> void:
 	if Engine.editor_hint:
 		if _object_container and _object_container.get_child_count():
-			if not _child_node and not _draw_node:
+			if not _child_node:
 				_setup_child_node()
 			_op_data = _object_position_data()
 
@@ -105,12 +198,11 @@ func _object_position_data() -> Dictionary:
 	var child_pos_datas := []
 	var parent_pos_x_pools := []
 	var parent_pos_y_pools := []
-	
 
 	for cn in children_nodes:
 		var p_data: Dictionary
 		p_data = _child_position_data(cn)
-		if cn is CollisionObject2D:
+		if not _check_SS2D_Shape_node(cn):
 			for c in cn.get_children():
 				p_data = _child_position_data(c)
 				if not p_data.empty():
@@ -164,14 +256,33 @@ func _child_position_data(node: Node2D) -> Dictionary:
 
 func _check_SS2D_Shape_node(node: Node2D) -> bool:
 	var ss2d_path = "res://addons/rmsmartshape"
-	if ss2d_path in node.get_script().get_path():
-		return true
+	if node.get_script():
+		if ss2d_path in node.get_script().get_path():
+			return true
 	return false
 
 
 func _setup_child_node() -> void:
 	_child_node = Node.new()
 	add_child(_child_node)
+
+
+func _setup_canvas_node() -> void:
+	_canvas_node = Sprite.new()
+	_canvas_node.position = Vector2.ZERO
+	_canvas_node.centered = false
+	_canvas_node.light_mask = range_item_cull_mask
+	_canvas_node.material = load("res://addons/gomask2d/materials/Canvas.material")
+	_canvas_node.show_behind_parent = true
+	add_child(_canvas_node)
+	
+	var _texture = ImageTexture.new()
+	var _image = Image.new()
+	_image.create(texture.get_size().x, texture.get_size().y, false, Image.FORMAT_RGBA8)
+	_texture.create_from_image(_image)
+	_canvas_node.texture = _texture
+	_canvas_image = _canvas_node.texture.get_data()
+	
 
 
 func _get_sprite_pos_data(node: Sprite) -> Dictionary:
@@ -293,11 +404,6 @@ func _rotate_point(pivot, point, offset, angle):
 	return Vector2(x, y)
 
 
-func _random_color() -> Color:
-	randomize()
-	return Color(randf(), randf(), randf())
-
-
 func _on_Mask2D_draw_debug(overlay: Control) -> void:
 	if _is_debug and _op_data:
 		var viewport_canvas_transform := get_viewport_transform() * get_canvas_transform()
@@ -361,6 +467,25 @@ func _on_Mask2D_debug(value: bool) -> void:
 	_is_debug = value
 
 
+func _on_Mask2D_draw_canvas(image: Image, dst_position: Vector2) -> void:
+	if draw_activate:
+		var image_size := image.get_size()
+#		VisualServer.force_draw()
+		yield(VisualServer, "frame_post_draw")
+		if draw_auto_crop:
+			image = image.get_rect(image.get_used_rect().grow(draw_crop_expand))
+			image_size = image.get_size()
+		if draw_global_coordinate:
+			dst_position -= _canvas_node.global_position
+		if draw_centered:
+			dst_position -= image_size / 2
+		_canvas_image.blend_rect(image, Rect2(Vector2.ZERO , image_size), dst_position)
+		VisualServer.texture_set_data(_canvas_node.texture.get_rid(), _canvas_image)
+		return
+	print(13)
+	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
+
+
 func _on_Mask2D_capture() -> void:
 	if Engine.editor_hint and _object_container and texture_name and _op_data and _child_node:
 		var viewport_container : ViewportContainer = preload("res://addons/gomask2d/ViewportContainer.tscn").instance()
@@ -392,10 +517,7 @@ func _on_Mask2D_capture() -> void:
 		var img_file = "{0}/{1}.png".format([texture_path, texture_name])
 		img.flip_y()
 		img.save_png(img_file)
-		var tex = ImageTexture.new()
-		tex.create_from_image(img)
-		texture = tex
-		texture = texture
+		texture = load(img_file)
 		if texture:
 			offset = texture.get_size() / 2
 		yield(get_tree().create_timer(1), "timeout")

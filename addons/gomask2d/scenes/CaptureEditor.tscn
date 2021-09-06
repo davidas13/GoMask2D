@@ -36,8 +36,9 @@ corner_radius_bottom_left = 10
 [node name="CaptureEditor" type="MarginContainer"]
 anchor_right = 1.0
 anchor_bottom = 1.0
-margin_right = -847.0
-margin_bottom = -547.0
+margin_right = -490.0
+margin_bottom = -298.0
+rect_min_size = Vector2( 150, 62 )
 custom_constants/margin_right = 6
 custom_constants/margin_top = 6
 custom_constants/margin_left = 6
@@ -50,7 +51,7 @@ __meta__ = {
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 margin_left = 6.0
 margin_top = 6.0
-margin_right = 171.0
+margin_right = 144.0
 margin_bottom = 56.0
 rect_min_size = Vector2( 0, 30 )
 __meta__ = {
@@ -58,11 +59,11 @@ __meta__ = {
 }
 
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
-margin_right = 165.0
+margin_right = 138.0
 margin_bottom = 24.0
 
 [node name="CaptureButton" type="Button" parent="VBoxContainer/HBoxContainer"]
-margin_right = 133.0
+margin_right = 106.0
 margin_bottom = 24.0
 rect_min_size = Vector2( 0, 16 )
 size_flags_horizontal = 3
@@ -78,8 +79,8 @@ disabled = true
 text = "Capture"
 
 [node name="DebugButton" type="ToolButton" parent="VBoxContainer/HBoxContainer"]
-margin_left = 137.0
-margin_right = 165.0
+margin_left = 110.0
+margin_right = 138.0
 margin_bottom = 24.0
 disabled = true
 toggle_mode = true
@@ -87,18 +88,18 @@ icon = ExtResource( 2 )
 
 [node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer"]
 margin_top = 28.0
-margin_right = 165.0
+margin_right = 138.0
 margin_bottom = 42.0
 custom_constants/separation = 0
 
 [node name="TexSizeLabel" type="Label" parent="VBoxContainer/VBoxContainer"]
-margin_right = 165.0
+margin_right = 138.0
 margin_bottom = 14.0
 text = "Texture Size:"
 
 [node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
 margin_top = 46.0
-margin_right = 165.0
+margin_right = 138.0
 margin_bottom = 50.0
 
 [connection signal="button_down" from="VBoxContainer/HBoxContainer/CaptureButton" to="." method="_on_CaptureButton_button_down"]

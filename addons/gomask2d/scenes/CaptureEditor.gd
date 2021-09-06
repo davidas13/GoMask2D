@@ -44,3 +44,4 @@ func _on_CaptureButton_button_down() -> void:
 	if mask2d:
 		mask2d.emit_signal("capture")
 		print("Capture")
+		property_list_changed_notify()

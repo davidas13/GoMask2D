@@ -183,9 +183,22 @@ boot_splash/fullsize=false
 boot_splash/bg_color=Color( 0.12549, 0.145098, 0.192157, 1 )
 config/icon="res://icon.png"
 
+[display]
+
+window/size/width=640
+window/size/height=360
+
 [editor_plugins]
 
 enabled=PoolStringArray( "res://addons/gomask2d/plugin.cfg", "res://addons/metadata_inspector/plugin.cfg", "res://addons/rmsmartshape/plugin.cfg" )
+
+[input]
+
+ui_click={
+"deadzone": 0.5,
+"events": [ Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":1,"pressed":false,"doubleclick":false,"script":null)
+ ]
+}
 
 [physics]
 

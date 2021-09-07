@@ -207,6 +207,10 @@ ui_click={
 
 pointing/emulate_touch_from_mouse=true
 
+[layer_names]
+
+2d_render/layer_2="mask2d"
+
 [physics]
 
 common/enable_pause_aware_picking=true

@@ -1,0 +1,61 @@
+[gd_scene load_steps=8 format=2]
+
+[ext_resource path="res://addons/gomask2d/Mask2D.gd" type="Script" id=1]
+[ext_resource path="res://addons/gomask2d/_examples/assets/tile_0004.png" type="Texture" id=2]
+[ext_resource path="res://addons/gomask2d/_mask_textures/Terrain.png" type="Texture" id=3]
+[ext_resource path="res://addons/gomask2d/_examples/assets/tile_0127.png" type="Texture" id=4]
+[ext_resource path="res://addons/gomask2d/_examples/assets/tile_0125.png" type="Texture" id=5]
+[ext_resource path="res://addons/gomask2d/_examples/assets/tile_0124.png" type="Texture" id=6]
+[ext_resource path="res://addons/gomask2d/_examples/assets/tile_0126.png" type="Texture" id=7]
+
+[node name="Terrain" type="Node2D"]
+
+[node name="ObjectContainer" type="Node2D" parent="."]
+
+[node name="tile_0124" type="Sprite" parent="ObjectContainer"]
+position = Vector2( 561.768, 126.252 )
+scale = Vector2( 2.05946, 3.90289 )
+texture = ExtResource( 6 )
+
+[node name="tile_0125" type="Sprite" parent="ObjectContainer"]
+position = Vector2( 162.437, 135.087 )
+scale = Vector2( 2.70641, 2.84733 )
+texture = ExtResource( 5 )
+
+[node name="tile_0126" type="Sprite" parent="ObjectContainer"]
+position = Vector2( 441.871, 135.831 )
+scale = Vector2( 2.87288, 3.34733 )
+texture = ExtResource( 7 )
+
+[node name="tile_0127" type="Sprite" parent="ObjectContainer"]
+position = Vector2( 75.5349, 136.335 )
+scale = Vector2( 2.87288, 2.95844 )
+texture = ExtResource( 4 )
+
+[node name="tile_0128" type="Sprite" parent="ObjectContainer"]
+position = Vector2( 283.05, 155.512 )
+scale = Vector2( 2.87288, 2.95844 )
+texture = ExtResource( 4 )
+
+[node name="Polygon2D" type="Polygon2D" parent="ObjectContainer"]
+position = Vector2( 0, -15.7145 )
+texture = ExtResource( 2 )
+polygon = PoolVector2Array( 26.8532, 171.226, 175.018, 174.593, 227.774, 191.43, 322.061, 192.553, 378.184, 174.593, 602.676, 173.471, 591.452, 244.186, 576.86, 270.003, 537.573, 303.677, 497.165, 325.003, 415.225, 338.473, 287.264, 348.575, 146.957, 337.35, 73.9966, 310.411, 41.4452, 278.982, 30.2206, 258.778 )
+
+[node name="Mask2D" type="Light2D" parent="."]
+position = Vector2( 27, 91 )
+texture = ExtResource( 3 )
+offset = Vector2( 288, 121 )
+mode = 2
+range_item_cull_mask = 2
+script = ExtResource( 1 )
+__meta__ = {
+"_edit_lock_": true
+}
+object_container = NodePath("../ObjectContainer")
+texture_name = "Terrain"
+draw_activate = true
+draw_centered = true
+draw_global_coordinate = true
+draw_auto_crop = true
+draw_crop_expand = 1.0

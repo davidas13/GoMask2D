@@ -296,7 +296,6 @@ func _draw_canvas(image: Image, dst_position: Vector2, canvas: Sprite) -> void:
 		canvas_image.blend_rect(image, Rect2(Vector2.ZERO , image_size), dst_position)
 		VisualServer.texture_set_data(canvas.texture.get_rid(), canvas_image)
 		return
-	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
 
 
 func _get_sprite_pos_data(node: Sprite) -> Dictionary:
@@ -468,6 +467,8 @@ func capture_mask() -> void:
 func _on_Mask2D_draw_canvas(image: Image, dst_position: Vector2) -> void:
 	if is_instance_valid(_canvas_node):
 		_draw_canvas(image, dst_position, _canvas_node)
+		return
+	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
 
 
 func _on_Mask2D_draw_custom_canvas(image: Image, dst_position: Vector2, canvas: Sprite) -> void:
@@ -476,7 +477,8 @@ func _on_Mask2D_draw_custom_canvas(image: Image, dst_position: Vector2, canvas: 
 		_draw_canvas(image, dst_position, canvas)
 		if not canvas in _canvases:
 			_canvases.push_back(canvas)
-
+		return
+	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
 
 func _on_Mask2D_reset_canvas() -> void:
 	_canvas_node.texture = _setup_canvas_texture()

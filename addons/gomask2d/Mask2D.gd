@@ -1,20 +1,10 @@
 tool
 extends Light2D
 
-signal capture
-signal changes
-signal tex_resize(tex_size)
-signal debug(value)
-signal draw_debug(overlay)
 signal draw_canvas(image, dst_position)
+signal draw_custom_canvas(image, dst_position, canvas)
 
 enum WARN_CODE {IS_PARENT, IS_SELF, IS_EMPTY}
-const COLOR := {
-	"parent_line": Color("1e73e1"),
-	"child_line": Color("ffd166"),
-	"parent_anchor": Color("ffb703"),
-	"child_anchor": Color("fb8500")
-}
 
 const default_tex_path := "res://addons/gomask2d/_mask_textures/"
 
@@ -22,17 +12,15 @@ export(NodePath) var object_container setget set_object_container
 export(String) var texture_name setget set_texture_name
 export(String, DIR) var texture_path = default_tex_path setget set_texture_path
 
-var _is_debug := false
-var _object_container : Node2D
-var _current_tex_size: Vector2 = Vector2.ZERO
+var is_debug := false
+var is_capturing := false
+var op_data: Dictionary
+var object_container_node : Node2D
 var _temp_child_nodes := []
-var _debug_achor_size := 4.0
-var _debug_line_size := 2.0
 var _child_node: Node
 var _canvas_node: Sprite
-var _canvas_image: Image
-var _op_data: Dictionary
-var _dir = Directory.new()
+var _dir := Directory.new()
+var _canvases := []
 
 
 # Draw Runtime Group
@@ -94,16 +82,14 @@ func set_object_container(value: NodePath) -> void:
 	update_configuration_warning()
 	object_container = value
 	if get_node_or_null(object_container) and get_node(object_container) != get_parent() and get_node(object_container) != self:
-		_object_container = get_node(object_container)
+		object_container_node = get_node(object_container)
 	else:
-		_object_container = null
-	emit_signal("changes")
+		object_container_node = null
 	property_list_changed_notify()
 
 
 func set_texture_name(value: String) -> void:
 	texture_name = value
-	emit_signal("changes")
 	property_list_changed_notify()
 	
 
@@ -167,33 +153,39 @@ func _ready() -> void:
 		set_object_container(object_container)
 		set_texture_name(texture_name)
 		set_texture_path(texture_path)
-		connect("debug", self, "_on_Mask2D_debug")
-		connect("capture", self, "_on_Mask2D_capture")
-		connect("draw_debug", self, "_on_Mask2D_draw_debug")
 	else:
 		if is_visible_in_tree() and draw_activate:
-			_setup_canvas_node()
+			_canvas_node = Sprite.new()
+			_canvas_node.position = Vector2.ZERO
+			add_child(_canvas_node)
+			_setup_canvas_node(_canvas_node)
 		connect("draw_canvas", self, "_on_Mask2D_draw_canvas")
-		set_process(false)
+		connect("draw_custom_canvas", self, "_on_Mask2D_draw_custom_canvas")
 
 
 func _process(_delta: float) -> void:
 	if Engine.editor_hint:
-		if _object_container and _object_container.get_child_count():
+		if is_instance_valid(object_container_node) and object_container_node.get_child_count():
 			if not _child_node:
 				_setup_child_node()
-			_op_data = _object_position_data()
+			op_data = _object_position_data()
 
-			if _op_data:
-				_current_tex_size = _op_data.parent.bottom_right - _op_data.parent.top_left
-				emit_signal("tex_resize", _current_tex_size)
-				global_position = _op_data.parent.top_left
+			if op_data:
+				global_position = op_data.parent.top_left
 				if texture:
 					offset = texture.get_size() / 2
+	else:
+		if not _canvases.empty():
+			for c in _canvases:
+				if is_instance_valid(c):
+					c.global_position = global_position
+				else:
+					var idx := _canvases.find(c)
+					_canvases.remove(idx)
 
 
 func _object_position_data() -> Dictionary:
-	var children_nodes := _object_container.get_children()
+	var children_nodes := object_container_node.get_children()
 	var parent_pos_data := {}
 	var child_pos_datas := []
 	var parent_pos_x_pools := []
@@ -267,22 +259,41 @@ func _setup_child_node() -> void:
 	add_child(_child_node)
 
 
-func _setup_canvas_node() -> void:
-	_canvas_node = Sprite.new()
-	_canvas_node.position = Vector2.ZERO
-	_canvas_node.centered = false
-	_canvas_node.light_mask = range_item_cull_mask
-	_canvas_node.material = load("res://addons/gomask2d/materials/Canvas.material")
-	_canvas_node.show_behind_parent = true
-	add_child(_canvas_node)
-	
+func _setup_canvas_node(canvas: Sprite) -> void:
+	canvas.centered = false
+	canvas.light_mask = range_item_cull_mask
+#	canvas.show_behind_parent = true
+	if not canvas.material:
+		canvas.material = load("res://addons/gomask2d/materials/Canvas.material")
+	if not canvas.texture:
+		canvas.texture = _setup_canvas_texture()
+
+
+func _setup_canvas_texture() -> ImageTexture:
 	var _texture = ImageTexture.new()
 	var _image = Image.new()
 	_image.create(texture.get_size().x, texture.get_size().y, false, Image.FORMAT_RGBA8)
 	_texture.create_from_image(_image)
-	_canvas_node.texture = _texture
-	_canvas_image = _canvas_node.texture.get_data()
-	
+	return _texture
+
+
+func _draw_canvas(image: Image, dst_position: Vector2, canvas: Sprite) -> void:
+	if draw_activate:
+		var image_size := image.get_size()
+		var canvas_image := canvas.texture.get_data()
+#		VisualServer.force_draw()
+		yield(VisualServer, "frame_post_draw")
+		if draw_auto_crop:
+			image = image.get_rect(image.get_used_rect().grow(draw_crop_expand))
+			image_size = image.get_size()
+		if draw_global_coordinate:
+			dst_position -= canvas.global_position
+		if draw_centered:
+			dst_position -= image_size / 2
+		canvas_image.blend_rect(image, Rect2(Vector2.ZERO , image_size), dst_position)
+		VisualServer.texture_set_data(canvas.texture.get_rid(), canvas_image)
+		return
+	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
 
 
 func _get_sprite_pos_data(node: Sprite) -> Dictionary:
@@ -404,101 +415,24 @@ func _rotate_point(pivot, point, offset, angle):
 	return Vector2(x, y)
 
 
-func _on_Mask2D_draw_debug(overlay: Control) -> void:
-	if _is_debug and _op_data:
-		var viewport_canvas_transform := get_viewport_transform() * get_canvas_transform()
-
-		for n in _op_data.childs:
-			overlay.draw_line(
-				viewport_canvas_transform * n.top_left, 
-				viewport_canvas_transform * n.top_right,
-				COLOR.child_line,
-				_debug_line_size)
-			overlay.draw_line(
-				viewport_canvas_transform * n.bottom_left,
-				viewport_canvas_transform * n.bottom_right, 
-				COLOR.child_line, 
-				_debug_line_size)
-			overlay.draw_line(
-				viewport_canvas_transform * n.top_left, 
-				viewport_canvas_transform * n.bottom_left, 
-				COLOR.child_line, 
-				_debug_line_size)
-			overlay.draw_line(
-				viewport_canvas_transform * n.top_right, 
-				viewport_canvas_transform * n.bottom_right, 
-				COLOR.child_line, 
-				_debug_line_size)
-			for p in n.values():
-				overlay.draw_circle(
-					viewport_canvas_transform * p, 
-					_debug_achor_size, 
-					COLOR.child_anchor)
-#
-		overlay.draw_line(
-			viewport_canvas_transform * _op_data.parent.top_left,
-			viewport_canvas_transform * _op_data.parent.top_right, 
-			COLOR.parent_line, 
-			_debug_line_size)
-		overlay.draw_line(
-			viewport_canvas_transform * _op_data.parent.bottom_left, 
-			viewport_canvas_transform * _op_data.parent.bottom_right, 
-			COLOR.parent_line, 
-			_debug_line_size)
-		overlay.draw_line(
-			viewport_canvas_transform * _op_data.parent.top_left, 
-			viewport_canvas_transform * _op_data.parent.bottom_left, 
-			COLOR.parent_line, 
-			_debug_line_size)
-		overlay.draw_line(
-			viewport_canvas_transform * _op_data.parent.top_right, 
-			viewport_canvas_transform * _op_data.parent.bottom_right, 
-			COLOR.parent_line, 
-			_debug_line_size)
-#
-		for p in _op_data.parent.values():
-			overlay.draw_circle(
-				viewport_canvas_transform * p, 
-				_debug_achor_size, 
-				COLOR.parent_anchor)
+func get_image_file() -> String:
+	return "{0}/{1}.png".format([texture_path, texture_name])
 
 
-func _on_Mask2D_debug(value: bool) -> void:
-	_is_debug = value
-
-
-func _on_Mask2D_draw_canvas(image: Image, dst_position: Vector2) -> void:
-	if draw_activate:
-		var image_size := image.get_size()
-#		VisualServer.force_draw()
-		yield(VisualServer, "frame_post_draw")
-		if draw_auto_crop:
-			image = image.get_rect(image.get_used_rect().grow(draw_crop_expand))
-			image_size = image.get_size()
-		if draw_global_coordinate:
-			dst_position -= _canvas_node.global_position
-		if draw_centered:
-			dst_position -= image_size / 2
-		_canvas_image.blend_rect(image, Rect2(Vector2.ZERO , image_size), dst_position)
-		VisualServer.texture_set_data(_canvas_node.texture.get_rid(), _canvas_image)
-		return
-	print(13)
-	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
-
-
-func _on_Mask2D_capture() -> void:
-	if Engine.editor_hint and _object_container and texture_name and _op_data and _child_node:
+func capture_mask() -> void:
+	if Engine.editor_hint and object_container_node and texture_name and op_data and _child_node:
+		is_capturing = true
 		var viewport_container : ViewportContainer = preload("res://addons/gomask2d/ViewportContainer.tscn").instance()
 		var viewport: Viewport = viewport_container.get_node("Viewport")
-		var scn: Node2D = _object_container.duplicate()
+		var scn: Node2D = object_container_node.duplicate()
 
 		_hide_all_collision(scn)
 
 		_child_node.add_child(viewport_container)
 		
 		scn.visible = true
-		viewport_container.rect_position = _op_data.parent.top_left
-		viewport_container.rect_size = _current_tex_size
+		viewport_container.rect_position = op_data.parent.top_left
+		viewport_container.rect_size = op_data.parent.bottom_right - op_data.parent.top_left
 		
 		var viewport_container2 = viewport_container.duplicate()
 		viewport.add_child(viewport_container2)
@@ -507,19 +441,51 @@ func _on_Mask2D_capture() -> void:
 
 		viewport_container2.get_node("Viewport").add_child(scn)
 		scn.global_position = Vector2(
-			_object_container.global_position.x - viewport_container.rect_global_position.x,
-			_object_container.global_position.y - viewport_container.rect_global_position.y
+			object_container_node.global_position.x - viewport_container.rect_global_position.x,
+			object_container_node.global_position.y - viewport_container.rect_global_position.y
 			)
 
 		yield(VisualServer, "frame_post_draw")
 		var img = viewport.get_texture().get_data()
+		var img_file = get_image_file()
 		img.fix_alpha_edges()
-		var img_file = "{0}/{1}.png".format([texture_path, texture_name])
 		img.flip_y()
 		img.save_png(img_file)
-		texture = load(img_file)
+		var tex = ImageTexture.new()
+		tex.create_from_image(img)
+		texture = tex #load(img_file)
 		if texture:
 			offset = texture.get_size() / 2
 		yield(get_tree().create_timer(1), "timeout")
 		_child_node.remove_child(viewport_container)
 		viewport_container.queue_free()
+		is_capturing = false
+
+
+func _on_Mask2D_draw_canvas(image: Image, dst_position: Vector2) -> void:
+	if is_instance_valid(_canvas_node):
+		_draw_canvas(image, dst_position, _canvas_node)
+#	if draw_activate:
+#		var image_size := image.get_size()
+##		VisualServer.force_draw()
+#		yield(VisualServer, "frame_post_draw")
+#		if draw_auto_crop:
+#			image = image.get_rect(image.get_used_rect().grow(draw_crop_expand))
+#			image_size = image.get_size()
+#		if draw_global_coordinate:
+#			dst_position -= _canvas_node.global_position
+#		if draw_centered:
+#			dst_position -= image_size / 2
+#		_canvas_image.blend_rect(image, Rect2(Vector2.ZERO , image_size), dst_position)
+#		VisualServer.texture_set_data(_canvas_node.texture.get_rid(), _canvas_image)
+#		return
+#	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
+
+
+func _on_Mask2D_draw_custom_canvas(image: Image, dst_position: Vector2, canvas: Sprite) -> void:
+	if is_instance_valid(canvas):
+		_setup_canvas_node(canvas)
+		_draw_canvas(image, dst_position, canvas)
+		if not canvas in _canvases:
+			_canvases.push_back(canvas)
+			print(_canvases)

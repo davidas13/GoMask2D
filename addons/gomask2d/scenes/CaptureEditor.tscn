@@ -1,7 +1,8 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://addons/gomask2d/scenes/CaptureEditor.gd" type="Script" id=1]
 [ext_resource path="res://addons/gomask2d/scenes/debug.png" type="Texture" id=2]
+[ext_resource path="res://addons/gomask2d/scenes/StreamTexture.png" type="Texture" id=3]
 
 [sub_resource type="StyleBoxFlat" id=1]
 bg_color = Color( 0.666667, 0.0862745, 0.0862745, 1 )
@@ -37,7 +38,7 @@ corner_radius_bottom_left = 10
 anchor_right = 1.0
 anchor_bottom = 1.0
 margin_right = -490.0
-margin_bottom = -298.0
+margin_bottom = -278.0
 rect_min_size = Vector2( 150, 62 )
 custom_constants/margin_right = 6
 custom_constants/margin_top = 6
@@ -52,7 +53,7 @@ __meta__ = {
 margin_left = 6.0
 margin_top = 6.0
 margin_right = 144.0
-margin_bottom = 56.0
+margin_bottom = 82.0
 rect_min_size = Vector2( 0, 30 )
 __meta__ = {
 "_edit_use_anchors_": false
@@ -60,12 +61,12 @@ __meta__ = {
 
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
 margin_right = 138.0
-margin_bottom = 24.0
+margin_bottom = 22.0
 
 [node name="CaptureButton" type="Button" parent="VBoxContainer/HBoxContainer"]
-margin_right = 106.0
-margin_bottom = 24.0
-rect_min_size = Vector2( 0, 16 )
+margin_right = 138.0
+margin_bottom = 22.0
+rect_min_size = Vector2( 0, 22 )
 size_flags_horizontal = 3
 size_flags_vertical = 3
 custom_styles/hover = SubResource( 1 )
@@ -78,18 +79,30 @@ custom_colors/font_color_pressed = Color( 0.12549, 0.12549, 0.12549, 1 )
 disabled = true
 text = "Capture"
 
-[node name="DebugButton" type="ToolButton" parent="VBoxContainer/HBoxContainer"]
-margin_left = 110.0
+[node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer"]
+margin_top = 26.0
 margin_right = 138.0
+margin_bottom = 50.0
+
+[node name="DebugButton" type="ToolButton" parent="VBoxContainer/HBoxContainer2"]
+margin_right = 28.0
 margin_bottom = 24.0
+hint_tooltip = "Showing bounding box"
 disabled = true
 toggle_mode = true
 icon = ExtResource( 2 )
 
+[node name="SwitchTextureButton" type="ToolButton" parent="VBoxContainer/HBoxContainer2"]
+margin_left = 32.0
+margin_right = 60.0
+margin_bottom = 24.0
+hint_tooltip = "Switch texture type to 'StreamTexture' if available"
+icon = ExtResource( 3 )
+
 [node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer"]
-margin_top = 28.0
+margin_top = 54.0
 margin_right = 138.0
-margin_bottom = 42.0
+margin_bottom = 68.0
 custom_constants/separation = 0
 
 [node name="TexSizeLabel" type="Label" parent="VBoxContainer/VBoxContainer"]
@@ -98,9 +111,10 @@ margin_bottom = 14.0
 text = "Texture Size:"
 
 [node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
-margin_top = 46.0
+margin_top = 72.0
 margin_right = 138.0
-margin_bottom = 50.0
+margin_bottom = 76.0
 
 [connection signal="button_down" from="VBoxContainer/HBoxContainer/CaptureButton" to="." method="_on_CaptureButton_button_down"]
-[connection signal="toggled" from="VBoxContainer/HBoxContainer/DebugButton" to="." method="_on_ToolButton_toggled"]
+[connection signal="toggled" from="VBoxContainer/HBoxContainer2/DebugButton" to="." method="_on_ToolButton_toggled"]
+[connection signal="button_down" from="VBoxContainer/HBoxContainer2/SwitchTextureButton" to="." method="_on_SwitchTextureButton_button_down"]

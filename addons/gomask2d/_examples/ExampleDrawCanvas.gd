@@ -35,13 +35,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.is_action_pressed("ui_click"):
 				match btn_group.get_pressed_button().name:
 					draw_canvas_cbx.name:
-						_draw_canvas()
+						call_deferred("_draw_canvas")
 					draw_custom_canvas_cbx.name:
-						_draw_custom_canvas()
+						call_deferred("_draw_custom_canvas")
 					draw_with_viewport_texture_cbx.name:
 						particle.restart()
 						particle.emitting = true
-						_draw_with_viewport_texture()
+						call_deferred("_draw_with_viewport_texture")
 
 
 func _draw_canvas() -> void:
@@ -62,15 +62,16 @@ func _draw_custom_canvas() -> void:
 
 func _draw_with_viewport_texture() -> void:
 	if particle.emitting:
-		var particle_viewport := particle.duplicate()
+		var particle_viewport: CPUParticles2D = particle.duplicate()
 		viewport.add_child(particle_viewport)
-		particle_viewport.emitting = true
+		particle_viewport.restart()
 		particle_viewport.position = (viewport.size / 2)
 
 		yield(VisualServer,"frame_post_draw")
 		yield(get_tree().create_timer(0.1), "timeout")
 		var viewport_image: Image = viewport.get_texture().get_data()
 		terrain.get_node("Mask2D").emit_signal("draw_canvas", viewport_image, get_global_mouse_position())
+		particle_viewport.queue_free()
 
 
 func _on_Timer_timeout(canvas: Sprite, tween: Tween) -> void:

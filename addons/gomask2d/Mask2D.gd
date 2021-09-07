@@ -3,6 +3,8 @@ extends Light2D
 
 signal draw_canvas(image, dst_position)
 signal draw_custom_canvas(image, dst_position, canvas)
+signal reset_canvas
+
 
 enum WARN_CODE {IS_PARENT, IS_SELF, IS_EMPTY}
 
@@ -161,6 +163,7 @@ func _ready() -> void:
 			_setup_canvas_node(_canvas_node)
 		connect("draw_canvas", self, "_on_Mask2D_draw_canvas")
 		connect("draw_custom_canvas", self, "_on_Mask2D_draw_custom_canvas")
+		connect("reset_canvas", self, "_on_Mask2D_reset_canvas")
 
 
 func _process(_delta: float) -> void:
@@ -465,21 +468,6 @@ func capture_mask() -> void:
 func _on_Mask2D_draw_canvas(image: Image, dst_position: Vector2) -> void:
 	if is_instance_valid(_canvas_node):
 		_draw_canvas(image, dst_position, _canvas_node)
-#	if draw_activate:
-#		var image_size := image.get_size()
-##		VisualServer.force_draw()
-#		yield(VisualServer, "frame_post_draw")
-#		if draw_auto_crop:
-#			image = image.get_rect(image.get_used_rect().grow(draw_crop_expand))
-#			image_size = image.get_size()
-#		if draw_global_coordinate:
-#			dst_position -= _canvas_node.global_position
-#		if draw_centered:
-#			dst_position -= image_size / 2
-#		_canvas_image.blend_rect(image, Rect2(Vector2.ZERO , image_size), dst_position)
-#		VisualServer.texture_set_data(_canvas_node.texture.get_rid(), _canvas_image)
-#		return
-#	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
 
 
 func _on_Mask2D_draw_custom_canvas(image: Image, dst_position: Vector2, canvas: Sprite) -> void:
@@ -488,4 +476,7 @@ func _on_Mask2D_draw_custom_canvas(image: Image, dst_position: Vector2, canvas: 
 		_draw_canvas(image, dst_position, canvas)
 		if not canvas in _canvases:
 			_canvases.push_back(canvas)
-			print(_canvases)
+
+
+func _on_Mask2D_reset_canvas() -> void:
+	_canvas_node.texture = _setup_canvas_texture()

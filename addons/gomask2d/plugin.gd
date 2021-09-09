@@ -49,7 +49,8 @@ func forward_canvas_draw_over_viewport(overlay: Control) -> void:
 func _on_draw_debug(overlay: Control) -> void:
 	var op_data = mask2d.op_data
 	var is_debug = mask2d.is_debug
-	if is_debug and op_data:
+	var obj_container = mask2d.object_container
+	if is_debug and op_data and obj_container:
 		var viewport_canvas_transform := mask2d.get_viewport_transform() * mask2d.get_canvas_transform()
 		for n in op_data.childs:
 			overlay.draw_line(

@@ -3,6 +3,9 @@ extends Light2D
 
 signal draw_canvas(image, dst_position)
 signal draw_custom_canvas(image, dst_position, canvas)
+signal draw_texture_canvas(texture_, dst_position, lifetime, rotation_, scale_, modulate_, normal_map)
+signal draw_texture_custom_canvas(texture_, dst_position, canvas, lifetime, rotation_, scale_, modulate_, normal_map)
+#signal draw_texture_spread_canvas(texture_, normal_map)
 signal reset_canvas
 
 
@@ -21,8 +24,11 @@ var object_container_node : Node2D
 var _temp_child_nodes := []
 var _child_node: Node
 var _canvas_node: Sprite
+var _texture_canvas_node: Node2D
 var _dir := Directory.new()
 var _canvases := []
+var _draw_texture_canvas_datas := []
+var _draw_texture_custom_canvas_datas := []
 
 
 # Draw Runtime Group
@@ -32,9 +38,24 @@ var draw_global_coordinate: bool = true setget set_draw_global_coordinate
 var draw_auto_crop: bool = false setget set_draw_auto_crop
 var draw_crop_expand: float = 1.0 setget set_draw_crop_expand
 
+# Draw Texture Runtime
+var draw_texture_activate: bool = false
+var draw_texture_centered: bool = true
+var draw_texture_global_coordinate: bool = true
+var draw_texture_default_lifetime: float = 3
+var draw_texture_default_fadetime: float = 1
+var draw_texture_max_applied: int = 100
+
+
+const WARN_MSG = {
+	"draw": "The signal '{0}' cannot be emitted, because export var '{1}' is unchecked",
+	"draw_tex_max": "The maximum number of textures has been applied: {0}"
+}
+
 
 func _get_property_list():
 	return [
+		# Draw Runtime Group
 		{
 			"name": "Draw Runtime",
 			"type": TYPE_NIL,
@@ -75,8 +96,60 @@ func _get_property_list():
 			"usage":
 			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
 			"hint": PROPERTY_HINT_RANGE,
-			"hint_string": "0.1,10.0,0.1,or_greater,or_lesser"
+			"hint_string": "0.1,10.0,0.1"
 		},
+		# Draw Texture Runtime Group
+		{
+			"name": "Draw Texture Runtime",
+			"type": TYPE_NIL,
+			"hint_string": "draw_texture_",
+			"usage": PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SCRIPT_VARIABLE
+		},
+		{
+			"name": "draw_texture_activate",
+			"type": TYPE_BOOL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_NONE,
+		},
+		{
+			"name": "draw_texture_centered",
+			"type": TYPE_BOOL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_NONE,
+		},
+		{
+			"name": "draw_texture_global_coordinate",
+			"type": TYPE_BOOL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_NONE,
+		},
+		{
+			"name": "draw_texture_default_lifetime",
+			"type": TYPE_REAL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_RANGE,
+			"hint_string": "1.0,30.0,0.1"
+		},
+		{
+			"name": "draw_texture_default_fadetime",
+			"type": TYPE_REAL,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_RANGE,
+			"hint_string": "0.1,10.0,0.1"
+		},
+		{
+			"name": "draw_texture_max_applied",
+			"type": TYPE_INT,
+			"usage":
+			PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR,
+			"hint": PROPERTY_HINT_RANGE,
+			"hint_string": "1,300,1"
+		}
 	]
 
 
@@ -133,7 +206,7 @@ func set_draw_crop_expand(value: float) -> void:
 
 
 func _enter_tree() -> void:
-#	mode = MODE_MIX
+	mode = MODE_MIX
 	set_meta("_edit_lock_", true)
 
 
@@ -156,13 +229,23 @@ func _ready() -> void:
 		set_texture_name(texture_name)
 		set_texture_path(texture_path)
 	else:
-		if is_visible_in_tree() and draw_activate:
-			_canvas_node = Sprite.new()
-			_canvas_node.position = Vector2.ZERO
-			add_child(_canvas_node)
-			_setup_canvas_node(_canvas_node)
+		if is_visible_in_tree():
+			if draw_activate:
+				_canvas_node = Sprite.new()
+				_canvas_node.position = Vector2.ZERO
+				add_child(_canvas_node)
+				_setup_draw_canvas_node(_canvas_node)
+			if draw_texture_activate:
+				_texture_canvas_node = Node2D.new()
+				_texture_canvas_node.position = Vector2.ZERO
+				add_child(_texture_canvas_node)
+				_setup_draw_texture_canvas_node(_texture_canvas_node)
+				_texture_canvas_node.connect("draw", self, "_on_Mask2D_draw")
+
 		connect("draw_canvas", self, "_on_Mask2D_draw_canvas")
 		connect("draw_custom_canvas", self, "_on_Mask2D_draw_custom_canvas")
+		connect("draw_texture_canvas", self, "_on_Mask2D_draw_texture_canvas")
+		connect("draw_texture_custom_canvas", self, "_on_Mask2D_draw_texture_custom_canvas")
 		connect("reset_canvas", self, "_on_Mask2D_reset_canvas")
 
 
@@ -185,6 +268,28 @@ func _process(_delta: float) -> void:
 				else:
 					var idx := _canvases.find(c)
 					_canvases.remove(idx)
+	
+	if draw_texture_activate:
+		if not _draw_texture_canvas_datas.empty() or not _draw_texture_custom_canvas_datas.empty():
+			if is_instance_valid(_texture_canvas_node):
+				for dt in _draw_texture_canvas_datas:
+					if is_instance_valid(dt.canvas):
+						if is_instance_valid(dt.timer):
+							if dt.timer.time_left < draw_texture_default_fadetime:
+								dt.modulate.a = range_lerp(dt.timer.time_left, draw_texture_default_fadetime, 0.0, 1.0, 0.0)
+								if dt.modulate.a < 0.0:
+									_draw_texture_canvas_datas.erase(dt)
+						else:
+							_draw_texture_canvas_datas.erase(dt)
+						
+				_texture_canvas_node.update()
+
+
+func _draw_texture() -> void:
+	for dt in _draw_texture_canvas_datas:
+		if dt.modulate.a > 0.0:
+			dt.canvas.draw_set_transform(dt.dst_position, dt.rotation, dt.scale)
+			dt.canvas.draw_texture(dt.texture, dt.tex_position, dt.modulate)
 
 
 func _object_position_data() -> Dictionary:
@@ -262,22 +367,27 @@ func _setup_child_node() -> void:
 	add_child(_child_node)
 
 
-func _setup_canvas_node(canvas: Sprite) -> void:
+func _setup_draw_canvas_node(canvas: Sprite) -> void:
 	canvas.centered = false
 	canvas.light_mask = range_item_cull_mask
-#	canvas.show_behind_parent = true
 	if not canvas.material:
 		canvas.material = load("res://addons/gomask2d/materials/Canvas.material")
 	if not canvas.texture:
-		canvas.texture = _setup_canvas_texture()
+		canvas.texture = _setup_draw_canvas_texture()
 
 
-func _setup_canvas_texture() -> ImageTexture:
+func _setup_draw_canvas_texture() -> ImageTexture:
 	var _texture = ImageTexture.new()
 	var _image = Image.new()
 	_image.create(texture.get_size().x, texture.get_size().y, false, Image.FORMAT_RGBA8)
 	_texture.create_from_image(_image)
 	return _texture
+	
+	
+func _setup_draw_texture_canvas_node(canvas: Node2D) -> void:
+	canvas.light_mask = range_item_cull_mask
+	if not canvas.material:
+		canvas.material = load("res://addons/gomask2d/materials/Canvas.material")
 
 
 func _draw_canvas(image: Image, dst_position: Vector2, canvas: Sprite) -> void:
@@ -417,6 +527,13 @@ func _rotate_point(pivot, point, offset, angle):
 	return Vector2(x, y)
 
 
+#func _random_id() -> int:
+#	randomize()
+#	var nums := PoolStringArray([
+#		String(randi() % 256), String(OS.get_ticks_usec())])
+#	return int(nums.join(""))
+
+
 func get_image_file() -> String:
 	return "{0}/{1}.png".format([texture_path, texture_name])
 
@@ -463,22 +580,57 @@ func capture_mask() -> void:
 		viewport_container.queue_free()
 		is_capturing = false
 
-
 func _on_Mask2D_draw_canvas(image: Image, dst_position: Vector2) -> void:
-	if is_instance_valid(_canvas_node):
-		_draw_canvas(image, dst_position, _canvas_node)
+	if not is_instance_valid(_canvas_node):
+		push_warning(WARN_MSG.draw.format(["draw_canvas", "draw_activate"]))
 		return
-	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
+	_draw_canvas(image, dst_position, _canvas_node)
 
 
 func _on_Mask2D_draw_custom_canvas(image: Image, dst_position: Vector2, canvas: Sprite) -> void:
-	if is_instance_valid(canvas):
-		_setup_canvas_node(canvas)
-		_draw_canvas(image, dst_position, canvas)
-		if not canvas in _canvases:
-			_canvases.push_back(canvas)
+	if not is_instance_valid(canvas):
+		push_warning(WARN_MSG.draw.format(["draw_canvas", "draw_activate"]))
 		return
-	push_warning("The signal 'draw_canvas' cannot be emitted, because export var 'draw_activate' is unchecked")
+	_setup_draw_canvas_node(canvas)
+	_draw_canvas(image, dst_position, canvas)
+	if not canvas in _canvases:
+		_canvases.push_back(canvas)
+
+
+func _on_Mask2D_draw_texture_canvas(texture_: Texture, dst_position: Vector2, lifetime: float = draw_texture_default_lifetime, rotation_: float = 0.0 , scale_: Vector2 = Vector2.ONE, modulate_: Color = Color.white, normal_map: Texture = null) -> void:
+	if not is_instance_valid(_texture_canvas_node):
+		push_warning(WARN_MSG.draw.format(["draw_texture_canvas", "draw_texture_activate"]))
+		return
+	if _draw_texture_canvas_datas.size() >= draw_texture_max_applied:
+		push_warning(WARN_MSG.draw_tex_max.format([draw_texture_max_applied]))
+		return
+	var tex_position = Vector2.ZERO
+	if draw_texture_global_coordinate:
+		dst_position -= _texture_canvas_node.global_position
+	if draw_texture_centered:
+		tex_position -= (texture_.get_size() / 2)
+	_draw_texture_canvas_datas.push_back({
+		"texture": texture_,
+		"dst_position": dst_position,
+		"tex_position": tex_position,
+		"lifetime": lifetime,
+		"timer": get_tree().create_timer(lifetime),
+		"rotation": rotation_,
+		"scale": scale_,
+		"modulate": modulate_,
+		"canvas": _texture_canvas_node
+	})
+
+
+func _on_Mask2D_draw_texture_custom_canvas(texture_: Texture, dst_position: Vector2, canvas, lifetime: float = draw_texture_default_lifetime, rotation_: float = 0.0 , scale_: Vector2 = Vector2.ONE, modulate_: Color = Color.white, normal_map: Texture = null) -> void:
+	if not is_instance_valid(canvas):
+		push_warning(WARN_MSG.draw.format(["draw_texture_canvas", "draw_texture_activate"]))
+		return
+
 
 func _on_Mask2D_reset_canvas() -> void:
-	_canvas_node.texture = _setup_canvas_texture()
+	_canvas_node.texture = _setup_draw_canvas_texture()
+
+
+func _on_Mask2D_draw() -> void:
+	_draw_texture()
